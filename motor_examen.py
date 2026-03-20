@@ -71,44 +71,61 @@ def obtener_numero(archivo_odt):
 
 def latex_a_png(latex, numero, tipo_hoja="carta"):
 
+    import subprocess
+    import os
+
     paper = "letterpaper" if tipo_hoja == "carta" else "legalpaper"
 
     tex = fr"""
-\documentclass[12pt]{{article}}
+\documentclass[10pt]{{article}}
 
 \usepackage[spanish]{{babel}}
 \usepackage{{amsmath, amssymb}}
 \usepackage{{enumitem}}
-\usepackage{{multicol}}
-\usepackage[{paper},margin=1.5cm]{{geometry}}
+\usepackage{{graphicx}}
+\usepackage[{paper},margin=1cm]{{geometry}}
 \usepackage{{xcolor}}
+\usepackage{{multicol}} 
 \usepackage[utf8]{{inputenc}}
 
-% Fuente tipo Arial (Helvetica)
 \usepackage{{helvet}}
 \renewcommand{{\familydefault}}{{\sfdefault}}
 
-% Gráficos matemáticos
-\usepackage{{tikz}}
-\usepackage{{pgfplots}}
-\pgfplotsset{{compat=1.18}}
-\usetikzlibrary{{arrows.meta,calc,patterns}}
-
 \pagestyle{{empty}}
 \setlength{{\parindent}}{{0pt}}
-\color{{black}}
+\setlength{{\parskip}}{{0pt}}
 
 \begin{{document}}
 
 \noindent
-\textbf{{{numero}. }}{latex}
+\textbf{{{numero}.}}
+
+\vspace{{0.2cm}}
+
+\noindent
+\begin{{minipage}}[t]{{0.66\textwidth}}
+{latex}
+\end{{minipage}}\hfill
+\begin{{minipage}}[t]{{0.34\textwidth}}
+
+\setlength{{\fboxsep}}{{5mm}}
+\setlength{{\fboxrule}}{{0.5pt}}
+
+\noindent
+\hspace*{{5mm}} % margen izquierdo del recuadro
+\fbox{{
+\begin{{minipage}}[t][6cm][t]{{\dimexpr\linewidth-10mm\relax}}
+\hspace{{0pt}}
+\end{{minipage}}
+}}
+
+\end{{minipage}}
 
 \end{{document}}
 """
 
     tex_file = "temp.tex"
     pdf_file = "temp.pdf"
-    crop_file = "temp_crop.pdf"
     png_file = "temp.png"
 
     # Guardar TEX
@@ -121,19 +138,13 @@ def latex_a_png(latex, numero, tipo_hoja="carta"):
         stdout=subprocess.DEVNULL
     )
 
-    # Recortar PDF
-    subprocess.run(
-        ["pdfcrop", pdf_file, crop_file],
-        stdout=subprocess.DEVNULL
-    )
-
     # Convertir a PNG
     subprocess.run([
         "pdftoppm",
         "-png",
         "-r", "300",
         "-singlefile",
-        crop_file,
+        pdf_file,
         "temp"
     ], stdout=subprocess.DEVNULL)
 

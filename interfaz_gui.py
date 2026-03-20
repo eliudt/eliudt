@@ -13,6 +13,7 @@ archivo_odt = None
 tipo_hoja = "carta"
 preview_path = None
 numero_actual = None
+preview_window = None
 
 
 # =========================================================
@@ -65,8 +66,9 @@ def vista_previa():
         messagebox.showwarning("Error", "Escriba una pregunta.")
         return
 
-    # ⭐ Obtener número REAL
-    numero_actual = motor.obtener_numero(archivo_odt)
+    # ⭐ Obtener número REAL (si no estamos editando una pregunta)
+    if numero_actual is None:
+        numero_actual = motor.obtener_numero(archivo_odt)
 
     preview_path = motor.latex_a_png(
         latex,
@@ -75,13 +77,68 @@ def vista_previa():
 )
 
     
+    # Abrir la imagen y preparar thumbnail razonable para mostrar
     img = Image.open(preview_path)
-    img.thumbnail((650, 650))
+    # No limitar demasiado; la ventana tendrá scroll
+    img.thumbnail((1200, 1200))
 
     img_tk = ImageTk.PhotoImage(img)
 
-    label_img.config(image=img_tk)
-    label_img.image = img_tk
+    # Crear ventana hija de vista previa
+    global preview_window
+
+    if preview_window and preview_window.winfo_exists():
+        preview_window.lift()
+        # actualizar imagen en la ventana existente
+        try:
+            canvas = preview_window.nametowidget("preview_canvas")
+            canvas.delete("all")
+            canvas.create_image(0, 0, anchor="nw", image=img_tk)
+            canvas.image = img_tk
+            canvas.config(scrollregion=canvas.bbox("all"))
+        except Exception:
+            pass
+        return
+
+    preview_window = tk.Toplevel(root)
+    preview_window.title("Vista previa")
+    preview_window.geometry("700x700")
+    preview_window.transient(root)
+
+    # Botones en la parte superior
+    top_frame = tk.Frame(preview_window)
+    top_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
+
+    def cerrar_preview():
+        global preview_window
+        if preview_window and preview_window.winfo_exists():
+            preview_window.destroy()
+        preview_window = None
+
+    tk.Button(top_frame, text="Agregar pregunta", command=lambda: (agregar(), cerrar_preview()), width=15).pack(side=tk.LEFT, padx=5)
+    tk.Button(top_frame, text="Cerrar", command=cerrar_preview, width=12).pack(side=tk.LEFT, padx=5)
+
+    # Contenedor con canvas y scrollbar vertical
+    container = tk.Frame(preview_window)
+    container.pack(fill="both", expand=True)
+
+    v_scroll = tk.Scrollbar(container, orient=tk.VERTICAL)
+    v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+    canvas = tk.Canvas(container, yscrollcommand=v_scroll.set, name="preview_canvas")
+    canvas.pack(side=tk.LEFT, fill="both", expand=True)
+    v_scroll.config(command=canvas.yview)
+
+    # Insertar imagen en canvas
+    canvas.create_image(0, 0, anchor="nw", image=img_tk)
+    canvas.image = img_tk
+    canvas.config(scrollregion=canvas.bbox("all"))
+
+    # Soporte para redimensionar y actualizar scrollregion
+    def _on_config(event):
+        canvas.config(scrollregion=canvas.bbox("all"))
+
+    canvas.bind("<Configure>", _on_config)
 
 
 # ---------------- Agregar pregunta ----------------
@@ -89,6 +146,7 @@ def vista_previa():
 def agregar():
 
     global preview_path, numero_actual
+    global preview_window
 
     if not archivo_odt:
         messagebox.showwarning("Error", "No hay documento activo.")
@@ -100,13 +158,17 @@ def agregar():
         messagebox.showwarning("Error", "Escriba una pregunta.")
         return
 
-    # ⭐ Recalcular número SIEMPRE
-    numero_actual = motor.obtener_numero(archivo_odt)
+    # Si estamos editando una pregunta existente, usar ese número
+    if numero_actual:
+        numero = numero_actual
+    else:
+        # Nuevo: asignar siguiente número
+        numero = motor.obtener_numero(archivo_odt) + 1
 
-    # ⭐ Generar imagen nuevamente
+    # ⭐ Generar imagen
     preview_path = motor.latex_a_png(
         latex,
-        numero_actual,
+        numero,
         tipo_hoja
     )
 
@@ -114,36 +176,46 @@ def agregar():
         messagebox.showerror("Error", "No se generó la imagen.")
         return
 
-    # ⭐ Insertar en ODT
-    motor.insertar_pregunta(
-        archivo_odt,
-        preview_path,
-        numero_actual
-    )
-
-    # ⭐ Guardar en BD
-    bd.guardar_pregunta(
-        archivo_odt,
-        numero_actual,
-        latex,
-        preview_path
-    )
+    if numero_actual:
+        # Reemplazar imagen en la posición existente
+        replaced = motor.reemplazar_pregunta(archivo_odt, preview_path, numero)
+        if not replaced:
+            # Si no encontró la pregunta, insertar al final
+            motor.insertar_pregunta(archivo_odt, preview_path, numero)
+        # Actualizar BD
+        bd.actualizar_pregunta(archivo_odt, numero, latex, preview_path)
+    else:
+        # Insertar nueva pregunta
+        motor.insertar_pregunta(archivo_odt, preview_path, numero)
+        bd.guardar_pregunta(archivo_odt, numero, latex, preview_path)
 
     messagebox.showinfo("Listo", "Pregunta agregada.")
 
+    # Cerrar ventana de vista previa si está abierta
+    if preview_window and preview_window.winfo_exists():
+        preview_window.destroy()
+    preview_window = None
+
+    # Limpiar editor y resetear estado de edición
     limpiar()
+    numero_actual = None
 
 # ---------------- Limpiar ----------------
 
 def limpiar():
 
     global preview_path, numero_actual
+    global preview_window
 
     txt.delete("1.0", tk.END)
     label_img.config(image="")
     label_img.image = None
     preview_path = None
     numero_actual = None
+    # Cerrar ventana de vista previa si existe
+    if preview_window and preview_window.winfo_exists():
+        preview_window.destroy()
+    preview_window = None
 
 
 # =========================================================
