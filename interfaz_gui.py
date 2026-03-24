@@ -2,9 +2,10 @@ import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk
 import motor_examen as motor
-from tkinter import simpledialog
 from tkinter import filedialog
 import os
+import subprocess
+import sys
 import bd_preguntas as bd
 
 
@@ -14,6 +15,7 @@ tipo_hoja = "carta"
 preview_path = None
 numero_actual = None
 preview_window = None
+archivo_visto_externamente = None
 
 
 # =========================================================
@@ -22,24 +24,244 @@ preview_window = None
 
 root = tk.Tk()
 root.title("Generador de Evaluaciones")
-root.geometry("750x650")
+root.geometry("980x760")
+root.configure(bg="#fff8f0")
+
+numero_var = tk.StringVar()
+con_procedimiento_var = tk.BooleanVar(value=True)
+
+COLORES = {
+    "fondo": "#fff8f0",
+    "panel": "#fffdf8",
+    "panel_sec": "#ffe9d6",
+    "borde": "#f0c7a1",
+    "texto": "#2f2a26",
+    "texto_sec": "#7b6252",
+    "acento": "#ff7a59",
+    "acento_2": "#ffc15e",
+    "exito": "#2a9d8f",
+    "claro": "#fff3e6",
+}
+
+FUENTE_TITULO = ("Helvetica", 24, "bold")
+FUENTE_SUBTITULO = ("Helvetica", 11)
+FUENTE_LABEL = ("Helvetica", 11, "bold")
+FUENTE_TEXTO = ("Helvetica", 11)
+FUENTE_BOTON = ("Helvetica", 11, "bold")
 
 
-label_ruta = tk.Label(root, text="Ruta: —", fg="blue")
-label_ruta.pack(pady=5)
+def crear_boton(parent, texto, comando, bg, fg="white", width=16):
+    return tk.Button(
+        parent,
+        text=texto,
+        command=comando,
+        width=width,
+        bg=bg,
+        fg=fg,
+        activebackground=bg,
+        activeforeground=fg,
+        relief="flat",
+        bd=0,
+        padx=14,
+        pady=10,
+        cursor="hand2",
+        font=FUENTE_BOTON
+    )
 
-label_archivo = tk.Label(root, text="Archivo: —", fg="blue")
-label_archivo.pack(pady=5)
+
+def maximizar_ventana(ventana):
+
+    try:
+        ventana.state("zoomed")
+        return
+    except tk.TclError:
+        pass
+
+    try:
+        ventana.attributes("-zoomed", True)
+        return
+    except tk.TclError:
+        pass
+
+    ancho = ventana.winfo_screenwidth()
+    alto = ventana.winfo_screenheight()
+    ventana.geometry(f"{ancho}x{alto}+0+0")
 
 
-tk.Label(root, text="Pregunta en LaTeX:").pack()
+main = tk.Frame(root, bg=COLORES["fondo"], padx=28, pady=24)
+main.pack(fill="both", expand=True)
 
-txt = tk.Text(root, width=90, height=12, state="disabled")
-txt.pack()
+header = tk.Frame(main, bg=COLORES["fondo"])
+header.pack(fill="x", pady=(0, 18))
 
+tk.Label(
+    header,
+    text="Generador de Evaluaciones",
+    bg=COLORES["fondo"],
+    fg=COLORES["texto"],
+    font=FUENTE_TITULO
+).pack(anchor="w")
 
-label_img = tk.Label(root)
-label_img.pack(pady=10)
+tk.Label(
+    header,
+    text="Crea, previsualiza y organiza preguntas en un espacio mas limpio y agradable.",
+    bg=COLORES["fondo"],
+    fg=COLORES["texto_sec"],
+    font=FUENTE_SUBTITULO
+).pack(anchor="w", pady=(4, 0))
+
+info_card = tk.Frame(
+    main,
+    bg=COLORES["panel_sec"],
+    highlightbackground=COLORES["borde"],
+    highlightthickness=1,
+    padx=18,
+    pady=16
+)
+info_card.pack(fill="x", pady=(0, 18))
+
+tk.Label(
+    info_card,
+    text="Documento Activo",
+    bg=COLORES["panel_sec"],
+    fg=COLORES["texto"],
+    font=("Helvetica", 14, "bold")
+).pack(anchor="w")
+
+label_ruta = tk.Label(
+    info_card,
+    text="Ruta: —",
+    bg=COLORES["panel_sec"],
+    fg=COLORES["texto_sec"],
+    font=FUENTE_TEXTO
+)
+label_ruta.pack(anchor="w", pady=(10, 2))
+
+label_archivo = tk.Label(
+    info_card,
+    text="Archivo: —",
+    bg=COLORES["panel_sec"],
+    fg=COLORES["texto_sec"],
+    font=FUENTE_TEXTO
+)
+label_archivo.pack(anchor="w", pady=2)
+
+stats_row = tk.Frame(info_card, bg=COLORES["panel_sec"])
+stats_row.pack(fill="x", pady=(12, 0))
+
+label_total = tk.Label(
+    stats_row,
+    text="Preguntas en el documento: 0",
+    bg=COLORES["claro"],
+    fg=COLORES["texto"],
+    font=FUENTE_TEXTO,
+    padx=12,
+    pady=8
+)
+label_total.pack(side=tk.LEFT, padx=(0, 10))
+
+label_sugerencia = tk.Label(
+    stats_row,
+    text="Sugerido: 1",
+    bg=COLORES["claro"],
+    fg=COLORES["acento"],
+    font=FUENTE_TEXTO,
+    padx=12,
+    pady=8
+)
+label_sugerencia.pack(side=tk.LEFT)
+
+editor_card = tk.Frame(
+    main,
+    bg=COLORES["panel"],
+    highlightbackground=COLORES["borde"],
+    highlightthickness=1,
+    padx=20,
+    pady=18
+)
+editor_card.pack(fill="both", expand=True)
+
+top_controls = tk.Frame(editor_card, bg=COLORES["panel"])
+top_controls.pack(fill="x", pady=(0, 14))
+
+frame_numero = tk.Frame(top_controls, bg=COLORES["panel"])
+frame_numero.pack(side=tk.LEFT)
+
+tk.Label(
+    frame_numero,
+    text="Numero de pregunta",
+    bg=COLORES["panel"],
+    fg=COLORES["texto"],
+    font=FUENTE_LABEL
+).pack(anchor="w")
+
+entry_numero = tk.Entry(
+    frame_numero,
+    textvariable=numero_var,
+    width=12,
+    relief="flat",
+    highlightthickness=1,
+    highlightbackground=COLORES["borde"],
+    highlightcolor=COLORES["acento"],
+    bg="#ffffff",
+    fg=COLORES["texto"],
+    font=FUENTE_TEXTO
+)
+entry_numero.pack(anchor="w", pady=(6, 0), ipady=6)
+
+options_frame = tk.Frame(top_controls, bg=COLORES["panel"])
+options_frame.pack(side=tk.RIGHT, padx=(20, 0))
+
+tk.Label(
+    options_frame,
+    text="Formato",
+    bg=COLORES["panel"],
+    fg=COLORES["texto"],
+    font=FUENTE_LABEL
+).pack(anchor="w")
+
+tk.Checkbutton(
+    options_frame,
+    text="Con procedimiento",
+    variable=con_procedimiento_var,
+    bg=COLORES["panel"],
+    fg=COLORES["texto_sec"],
+    activebackground=COLORES["panel"],
+    activeforeground=COLORES["texto"],
+    selectcolor=COLORES["claro"],
+    font=FUENTE_TEXTO
+).pack(anchor="w", pady=(6, 0))
+
+tk.Label(
+    editor_card,
+    text="Pregunta en LaTeX",
+    bg=COLORES["panel"],
+    fg=COLORES["texto"],
+    font=FUENTE_LABEL
+).pack(anchor="w")
+
+txt = tk.Text(
+    editor_card,
+    width=90,
+    height=15,
+    state="disabled",
+    relief="flat",
+    wrap="word",
+    highlightthickness=1,
+    highlightbackground=COLORES["borde"],
+    highlightcolor=COLORES["acento"],
+    bg="#fffaf5",
+    fg=COLORES["texto"],
+    insertbackground=COLORES["texto"],
+    font=("Courier New", 11)
+)
+txt.pack(fill="both", expand=True, pady=(8, 14))
+
+frame_btn = tk.Frame(editor_card, bg=COLORES["panel"])
+frame_btn.pack(fill="x")
+
+label_img = tk.Label(editor_card, bg=COLORES["panel"])
+label_img.pack(pady=(12, 0))
 
 
 # =========================================================
@@ -50,11 +272,376 @@ def habilitar_editor():
     txt.config(state="normal")
 
 
+def activar_documento(ruta, limpiar_editor=True):
+
+    global archivo_odt, numero_actual
+
+    archivo_odt = os.path.abspath(ruta)
+    numero_actual = None
+
+    label_ruta.config(text=f"Ruta: {archivo_odt}")
+    label_archivo.config(
+        text=f"Archivo: {os.path.basename(archivo_odt)}"
+    )
+
+    habilitar_editor()
+    actualizar_info_documento(actualizar_numero=True)
+
+    if limpiar_editor:
+        txt.delete("1.0", tk.END)
+        label_img.config(image="")
+        label_img.image = None
+
+
+def actualizar_info_documento(actualizar_numero=False):
+
+    if not archivo_odt:
+        label_total.config(text="Preguntas en el documento: 0")
+        label_sugerencia.config(text="Sugerido: 1")
+        if actualizar_numero:
+            numero_var.set("")
+        return
+
+    numeros = motor.obtener_numeros_pregunta(archivo_odt)
+    sugerido = motor.obtener_numero_sugerido(archivo_odt)
+
+    label_total.config(
+        text=f"Preguntas en el documento: {len(numeros)}"
+    )
+    label_sugerencia.config(
+        text=f"Sugerido: {sugerido}"
+    )
+
+    if actualizar_numero:
+        numero_var.set(str(sugerido))
+
+
+def obtener_numero_ingresado():
+
+    texto = numero_var.get().strip()
+
+    if not texto:
+        messagebox.showwarning(
+            "Error",
+            "Ingrese el número de la pregunta."
+        )
+        return None
+
+    if not texto.isdigit():
+        messagebox.showwarning(
+            "Error",
+            "El número de la pregunta debe ser un entero positivo."
+        )
+        return None
+
+    numero = int(texto)
+
+    if numero <= 0:
+        messagebox.showwarning(
+            "Error",
+            "El número de la pregunta debe ser mayor que cero."
+        )
+        return None
+
+    return numero
+
+
+def generar_preview_pregunta(latex, numero):
+
+    if con_procedimiento_var.get():
+        return motor.latex_a_png(latex, numero, tipo_hoja)
+
+    return motor.latex_a_png_sin_recuadro(latex, numero, tipo_hoja)
+
+
 # ---------------- Vista previa ----------------
+
+def cerrar_preview():
+
+    global preview_window
+
+    if preview_window and preview_window.winfo_exists():
+        preview_window.destroy()
+
+    preview_window = None
+
+
+def _actualizar_panel_preview(img_tk, numero, latex):
+
+    if not preview_window or not preview_window.winfo_exists():
+        return
+
+    canvas = preview_window.preview_canvas
+    canvas.delete("all")
+    canvas.create_image(24, 24, anchor="nw", image=img_tk)
+    canvas.image = img_tk
+    canvas.config(scrollregion=canvas.bbox("all"))
+
+    modo = "Con procedimiento" if con_procedimiento_var.get() else "Sin procedimiento"
+
+    preview_window.label_preview_numero.config(
+        text=f"Pregunta #{numero}"
+    )
+    preview_window.label_preview_formato.config(
+        text=f"Hoja: {tipo_hoja.capitalize()}  |  Vista: {modo}"
+    )
+    preview_window.label_preview_detalle.config(
+        text=f"Longitud del contenido: {len(latex)} caracteres"
+    )
+
+
+def _crear_ventana_preview():
+
+    global preview_window
+
+    preview_window = tk.Toplevel(root)
+    preview_window.title("Vista previa")
+    preview_window.geometry("1320x760")
+    preview_window.minsize(980, 620)
+    preview_window.configure(bg=COLORES["fondo"])
+    preview_window.after(100, lambda: maximizar_ventana(preview_window))
+
+    header = tk.Frame(
+        preview_window,
+        bg=COLORES["fondo"],
+        padx=24,
+        pady=20
+    )
+    header.pack(fill="x")
+
+    tk.Label(
+        header,
+        text="Vista previa de la pregunta",
+        bg=COLORES["fondo"],
+        fg=COLORES["texto"],
+        font=("Helvetica", 20, "bold")
+    ).pack(anchor="w")
+
+    tk.Label(
+        header,
+        text="Revisa la composición antes de insertarla y ajusta lo necesario desde la pantalla principal.",
+        bg=COLORES["fondo"],
+        fg=COLORES["texto_sec"],
+        font=FUENTE_SUBTITULO
+    ).pack(anchor="w", pady=(4, 0))
+
+    body = tk.Frame(
+        preview_window,
+        bg=COLORES["fondo"],
+        padx=24,
+        pady=0
+    )
+    body.pack(fill="both", expand=True)
+
+    side_panel = tk.Frame(
+        body,
+        bg=COLORES["panel_sec"],
+        highlightbackground=COLORES["borde"],
+        highlightthickness=1,
+        padx=18,
+        pady=18,
+        width=360
+    )
+    side_panel.pack(side=tk.LEFT, fill="y", padx=(0, 18))
+    side_panel.pack_propagate(False)
+
+    tk.Label(
+        side_panel,
+        text="Resumen",
+        bg=COLORES["panel_sec"],
+        fg=COLORES["texto"],
+        font=("Helvetica", 14, "bold")
+    ).pack(anchor="w")
+
+    preview_window.label_preview_numero = tk.Label(
+        side_panel,
+        text="Pregunta #1",
+        bg=COLORES["claro"],
+        fg=COLORES["texto"],
+        font=("Helvetica", 12, "bold"),
+        padx=12,
+        pady=10
+    )
+    preview_window.label_preview_numero.pack(fill="x", pady=(14, 10))
+
+    preview_window.label_preview_formato = tk.Label(
+        side_panel,
+        text="Hoja: Carta",
+        bg=COLORES["claro"],
+        fg=COLORES["texto_sec"],
+        font=FUENTE_TEXTO,
+        justify="left",
+        anchor="w",
+        wraplength=300,
+        padx=12,
+        pady=10
+    )
+    preview_window.label_preview_formato.pack(fill="x", pady=(0, 10))
+
+    preview_window.label_preview_detalle = tk.Label(
+        side_panel,
+        text="Longitud del contenido: 0 caracteres",
+        bg=COLORES["claro"],
+        fg=COLORES["texto_sec"],
+        font=FUENTE_TEXTO,
+        justify="left",
+        anchor="w",
+        wraplength=300,
+        padx=12,
+        pady=10
+    )
+    preview_window.label_preview_detalle.pack(fill="x", pady=(0, 18))
+
+    tk.Label(
+        side_panel,
+        text="Acciones",
+        bg=COLORES["panel_sec"],
+        fg=COLORES["texto"],
+        font=("Helvetica", 13, "bold")
+    ).pack(anchor="w", pady=(4, 10))
+
+    crear_boton(
+        side_panel,
+        "Actualizar vista",
+        vista_previa,
+        COLORES["acento_2"],
+        fg=COLORES["texto"],
+        width=20
+    ).pack(fill="x", pady=(0, 10))
+
+    crear_boton(
+        side_panel,
+        "Agregar pregunta",
+        lambda: (agregar(), cerrar_preview()),
+        COLORES["exito"],
+        width=20
+    ).pack(fill="x", pady=(0, 10))
+
+    crear_boton(
+        side_panel,
+        "Limpiar editor",
+        limpiar,
+        COLORES["acento"],
+        width=20
+    ).pack(fill="x", pady=(0, 10))
+
+    crear_boton(
+        side_panel,
+        "Cerrar vista",
+        cerrar_preview,
+        COLORES["texto_sec"],
+        width=20
+    ).pack(fill="x")
+
+    tk.Label(
+        side_panel,
+        text='Tip: edita el contenido en la ventana principal y luego usa "Actualizar vista" para comparar cambios.',
+        bg=COLORES["panel_sec"],
+        fg=COLORES["texto_sec"],
+        font=("Helvetica", 10),
+        justify="left",
+        wraplength=300
+    ).pack(anchor="w", pady=(18, 0))
+
+    preview_card = tk.Frame(
+        body,
+        bg=COLORES["panel"],
+        highlightbackground=COLORES["borde"],
+        highlightthickness=1,
+        padx=16,
+        pady=16
+    )
+    preview_card.pack(side=tk.LEFT, fill="both", expand=True)
+
+    preview_top = tk.Frame(preview_card, bg=COLORES["panel"])
+    preview_top.pack(fill="x", pady=(0, 12))
+
+    tk.Label(
+        preview_top,
+        text="Resultado renderizado",
+        bg=COLORES["panel"],
+        fg=COLORES["texto"],
+        font=("Helvetica", 14, "bold")
+    ).pack(side=tk.LEFT)
+
+    tk.Label(
+        preview_top,
+        text="Usa la rueda del mouse para revisar toda la pregunta.",
+        bg=COLORES["panel"],
+        fg=COLORES["texto_sec"],
+        font=("Helvetica", 10)
+    ).pack(side=tk.RIGHT)
+
+    canvas_wrap = tk.Frame(
+        preview_card,
+        bg=COLORES["claro"],
+        highlightbackground=COLORES["borde"],
+        highlightthickness=1
+    )
+    canvas_wrap.pack(fill="both", expand=True)
+
+    v_scroll = tk.Scrollbar(canvas_wrap, orient=tk.VERTICAL)
+    v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+    h_scroll = tk.Scrollbar(canvas_wrap, orient=tk.HORIZONTAL)
+    h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+
+    canvas = tk.Canvas(
+        canvas_wrap,
+        bg="#fffaf5",
+        bd=0,
+        highlightthickness=0,
+        yscrollcommand=v_scroll.set,
+        xscrollcommand=h_scroll.set
+    )
+    canvas.pack(side=tk.LEFT, fill="both", expand=True)
+
+    v_scroll.config(command=canvas.yview)
+    h_scroll.config(command=canvas.xview)
+
+    def _on_config(_event):
+        canvas.config(scrollregion=canvas.bbox("all"))
+
+    def _on_mousewheel(event):
+        paso = -1 if event.delta > 0 else 1
+        if event.state & 0x0001:
+            canvas.xview_scroll(paso, "units")
+        else:
+            canvas.yview_scroll(paso, "units")
+
+    def _on_linux_scroll_up(_event):
+        canvas.yview_scroll(-1, "units")
+
+    def _on_linux_scroll_down(_event):
+        canvas.yview_scroll(1, "units")
+
+    def _on_linux_shift_scroll_up(_event):
+        canvas.xview_scroll(-1, "units")
+
+    def _on_linux_shift_scroll_down(_event):
+        canvas.xview_scroll(1, "units")
+
+    canvas.bind("<Configure>", _on_config)
+    canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    canvas.bind_all("<Button-4>", _on_linux_scroll_up)
+    canvas.bind_all("<Button-5>", _on_linux_scroll_down)
+    canvas.bind_all("<Shift-Button-4>", _on_linux_shift_scroll_up)
+    canvas.bind_all("<Shift-Button-5>", _on_linux_shift_scroll_down)
+
+    def _al_cerrar():
+        canvas.unbind_all("<MouseWheel>")
+        canvas.unbind_all("<Button-4>")
+        canvas.unbind_all("<Button-5>")
+        canvas.unbind_all("<Shift-Button-4>")
+        canvas.unbind_all("<Shift-Button-5>")
+        cerrar_preview()
+
+    preview_window.preview_canvas = canvas
+    preview_window.protocol("WM_DELETE_WINDOW", _al_cerrar)
 
 def vista_previa():
 
-    global preview_path, numero_actual
+    global preview_path
 
     if not archivo_odt:
         messagebox.showwarning("Error", "Primero cree un documento.")
@@ -66,79 +653,28 @@ def vista_previa():
         messagebox.showwarning("Error", "Escriba una pregunta.")
         return
 
-    # ⭐ Obtener número REAL (si no estamos editando una pregunta)
-    if numero_actual is None:
-        numero_actual = motor.obtener_numero(archivo_odt)
+    numero = obtener_numero_ingresado()
 
-    preview_path = motor.latex_a_png(
-        latex,
-        numero_actual,
-        tipo_hoja
-)
+    if numero is None:
+        return
 
-    
-    # Abrir la imagen y preparar thumbnail razonable para mostrar
+    preview_path = generar_preview_pregunta(latex, numero)
+
+    # Abrir la imagen y preparar una vista amplia con scroll
     img = Image.open(preview_path)
-    # No limitar demasiado; la ventana tendrá scroll
-    img.thumbnail((1200, 1200))
+    img.thumbnail((1800, 1800))
 
     img_tk = ImageTk.PhotoImage(img)
 
-    # Crear ventana hija de vista previa
     global preview_window
 
     if preview_window and preview_window.winfo_exists():
         preview_window.lift()
-        # actualizar imagen en la ventana existente
-        try:
-            canvas = preview_window.nametowidget("preview_canvas")
-            canvas.delete("all")
-            canvas.create_image(0, 0, anchor="nw", image=img_tk)
-            canvas.image = img_tk
-            canvas.config(scrollregion=canvas.bbox("all"))
-        except Exception:
-            pass
+        _actualizar_panel_preview(img_tk, numero, latex)
         return
 
-    preview_window = tk.Toplevel(root)
-    preview_window.title("Vista previa")
-    preview_window.geometry("700x700")
-    preview_window.transient(root)
-
-    # Botones en la parte superior
-    top_frame = tk.Frame(preview_window)
-    top_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
-
-    def cerrar_preview():
-        global preview_window
-        if preview_window and preview_window.winfo_exists():
-            preview_window.destroy()
-        preview_window = None
-
-    tk.Button(top_frame, text="Agregar pregunta", command=lambda: (agregar(), cerrar_preview()), width=15).pack(side=tk.LEFT, padx=5)
-    tk.Button(top_frame, text="Cerrar", command=cerrar_preview, width=12).pack(side=tk.LEFT, padx=5)
-
-    # Contenedor con canvas y scrollbar vertical
-    container = tk.Frame(preview_window)
-    container.pack(fill="both", expand=True)
-
-    v_scroll = tk.Scrollbar(container, orient=tk.VERTICAL)
-    v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-
-    canvas = tk.Canvas(container, yscrollcommand=v_scroll.set, name="preview_canvas")
-    canvas.pack(side=tk.LEFT, fill="both", expand=True)
-    v_scroll.config(command=canvas.yview)
-
-    # Insertar imagen en canvas
-    canvas.create_image(0, 0, anchor="nw", image=img_tk)
-    canvas.image = img_tk
-    canvas.config(scrollregion=canvas.bbox("all"))
-
-    # Soporte para redimensionar y actualizar scrollregion
-    def _on_config(event):
-        canvas.config(scrollregion=canvas.bbox("all"))
-
-    canvas.bind("<Configure>", _on_config)
+    _crear_ventana_preview()
+    _actualizar_panel_preview(img_tk, numero, latex)
 
 
 # ---------------- Agregar pregunta ----------------
@@ -158,37 +694,73 @@ def agregar():
         messagebox.showwarning("Error", "Escriba una pregunta.")
         return
 
-    # Si estamos editando una pregunta existente, usar ese número
-    if numero_actual:
-        numero = numero_actual
-    else:
-        # Nuevo: asignar siguiente número
-        numero = motor.obtener_numero(archivo_odt) + 1
+    numero = obtener_numero_ingresado()
+
+    if numero is None:
+        return
+
+    if numero_actual is None and motor.pregunta_existe(archivo_odt, numero):
+        reemplazar = messagebox.askyesno(
+            "Número existente",
+            f"La pregunta {numero} ya existe. ¿Desea reemplazarla?"
+        )
+
+        if not reemplazar:
+            return
+
+    if numero_actual is not None and numero != numero_actual:
+        if motor.pregunta_existe(archivo_odt, numero):
+            messagebox.showerror(
+                "Error",
+                f"Ya existe una pregunta con el número {numero}."
+            )
+            return
 
     # ⭐ Generar imagen
-    preview_path = motor.latex_a_png(
-        latex,
-        numero,
-        tipo_hoja
-    )
+    preview_path = generar_preview_pregunta(latex, numero)
 
     if not os.path.exists(preview_path):
         messagebox.showerror("Error", "No se generó la imagen.")
         return
 
-    if numero_actual:
-        # Reemplazar imagen en la posición existente
-        replaced = motor.reemplazar_pregunta(archivo_odt, preview_path, numero)
-        if not replaced:
-            # Si no encontró la pregunta, insertar al final
-            motor.insertar_pregunta(archivo_odt, preview_path, numero)
-        # Actualizar BD
-        bd.actualizar_pregunta(archivo_odt, numero, latex, preview_path)
-    else:
-        # Insertar nueva pregunta
-        motor.insertar_pregunta(archivo_odt, preview_path, numero)
-        bd.guardar_pregunta(archivo_odt, numero, latex, preview_path)
+    if numero_actual is not None:
+        updated = motor.actualizar_pregunta_en_odt(
+            archivo_odt,
+            numero_actual,
+            preview_path,
+            numero
+        )
 
+        if not updated:
+            motor.insertar_pregunta(archivo_odt, preview_path, numero)
+
+        bd.actualizar_pregunta(
+            archivo_odt,
+            numero_actual,
+            numero,
+            latex,
+            preview_path
+        )
+    else:
+        if motor.pregunta_existe(archivo_odt, numero):
+            replaced = motor.reemplazar_pregunta(archivo_odt, preview_path, numero)
+
+            if replaced:
+                bd.actualizar_pregunta(
+                    archivo_odt,
+                    numero,
+                    numero,
+                    latex,
+                    preview_path
+                )
+            else:
+                motor.insertar_pregunta(archivo_odt, preview_path, numero)
+                bd.guardar_pregunta(archivo_odt, numero, latex, preview_path)
+        else:
+            motor.insertar_pregunta(archivo_odt, preview_path, numero)
+            bd.guardar_pregunta(archivo_odt, numero, latex, preview_path)
+
+    refrescar_vista_externa()
     messagebox.showinfo("Listo", "Pregunta agregada.")
 
     # Cerrar ventana de vista previa si está abierta
@@ -199,6 +771,7 @@ def agregar():
     # Limpiar editor y resetear estado de edición
     limpiar()
     numero_actual = None
+    actualizar_info_documento(actualizar_numero=True)
 
 # ---------------- Limpiar ----------------
 
@@ -210,29 +783,100 @@ def limpiar():
     txt.delete("1.0", tk.END)
     label_img.config(image="")
     label_img.image = None
+    con_procedimiento_var.set(True)
     preview_path = None
     numero_actual = None
+    actualizar_info_documento(actualizar_numero=True)
     # Cerrar ventana de vista previa si existe
     if preview_window and preview_window.winfo_exists():
         preview_window.destroy()
     preview_window = None
 
 
+def obtener_directorio_evaluaciones():
+
+    ruta_base = os.path.abspath(BASE)
+
+    if not os.path.isdir(ruta_base):
+        os.makedirs(ruta_base, exist_ok=True)
+
+    return ruta_base
+
+
+def abrir_en_visor_sistema(ruta):
+
+    if sys.platform.startswith("linux"):
+        subprocess.Popen(["xdg-open", ruta])
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", ruta])
+    elif os.name == "nt":
+        os.startfile(ruta)
+    else:
+        raise OSError("Sistema operativo no compatible")
+
+
+def refrescar_vista_externa():
+
+    if not archivo_odt or archivo_visto_externamente != archivo_odt:
+        return
+
+    try:
+        abrir_en_visor_sistema(archivo_odt)
+    except Exception:
+        pass
+
+
+def ver_evaluacion():
+
+    global archivo_visto_externamente
+
+    ruta = filedialog.askopenfilename(
+        title="Ver evaluación",
+        initialdir=obtener_directorio_evaluaciones(),
+        filetypes=[("Documentos ODT", "*.odt")]
+    )
+
+    if not ruta:
+        return
+
+    try:
+        archivo_visto_externamente = os.path.abspath(ruta)
+        abrir_en_visor_sistema(archivo_visto_externamente)
+    except Exception as exc:
+        messagebox.showerror(
+            "Error",
+            f"No se pudo abrir la evaluación:\n{exc}"
+        )
+
+
 # =========================================================
 # BOTONES PRINCIPALES
 # =========================================================
 
-frame_btn = tk.Frame(root)
-frame_btn.pack(pady=10)
+crear_boton(
+    frame_btn,
+    "Vista previa",
+    vista_previa,
+    COLORES["acento_2"],
+    fg=COLORES["texto"],
+    width=15
+).pack(side=tk.LEFT, padx=(0, 10))
 
-tk.Button(frame_btn, text="Vista previa",
-          command=vista_previa, width=15).pack(side=tk.LEFT, padx=5)
+crear_boton(
+    frame_btn,
+    "Agregar pregunta",
+    agregar,
+    COLORES["exito"],
+    width=18
+).pack(side=tk.LEFT, padx=10)
 
-tk.Button(frame_btn, text="Agregar pregunta",
-          command=agregar, width=18).pack(side=tk.LEFT, padx=5)
-
-tk.Button(frame_btn, text="Limpiar",
-          command=limpiar, width=12).pack(side=tk.LEFT, padx=5)
+crear_boton(
+    frame_btn,
+    "Limpiar",
+    limpiar,
+    COLORES["acento"],
+    width=12
+).pack(side=tk.LEFT, padx=(10, 0))
 
 
 # =========================================================
@@ -299,6 +943,7 @@ def nuevo_documento():
         )
 
         habilitar_editor()
+        actualizar_info_documento(actualizar_numero=True)
 
         messagebox.showinfo("Listo", "Documento creado.")
         ventana.destroy()
@@ -326,57 +971,25 @@ def nuevo_documento():
                              padx=5)
 
 # =========================================================
-# EDITAR PREGUNTA
+# EDITAR EVALUACION
 # =========================================================
 
-def editar_pregunta():
-
-    global archivo_odt, numero_actual
+def editar_evaluacion():
 
     ruta = filedialog.askopenfilename(
         title="Seleccionar evaluación",
+        initialdir=obtener_directorio_evaluaciones(),
         filetypes=[("Documentos ODT", "*.odt")]
     )
 
     if not ruta:
         return
 
-    # ⭐ AQUÍ VA LA CONVERSIÓN
-    archivo_odt = os.path.abspath(ruta)
-
-    label_ruta.config(text=f"Ruta: {archivo_odt}")
-    label_archivo.config(
-        text=f"Archivo: {os.path.basename(archivo_odt)}"
-    )
-
-    numero = simpledialog.askinteger(
-        "Editar pregunta",
-        "Número de pregunta:"
-    )
-
-    if not numero:
-        return
-
-    fila = bd.obtener_pregunta(archivo_odt, numero)
-
-    if not fila:
-        messagebox.showerror(
-            "Error",
-            "No se encontró esa pregunta."
-        )
-        return
-
-    latex, ruta_img, ruta_tex = fila
-
-    txt.config(state="normal")
-    txt.delete("1.0", tk.END)
-    txt.insert("1.0", latex)
-
-    numero_actual = numero
+    activar_documento(ruta)
 
     messagebox.showinfo(
-        "Editar",
-        f"Editando pregunta {numero}"
+        "Evaluación cargada",
+        "La evaluación quedó abierta para seguir agregando preguntas."
     )
 
 
@@ -392,16 +1005,22 @@ menu_archivo.add_command(
     command=nuevo_documento
 )
 menu_archivo.add_command(
-    label="Editar pregunta",
-    command=editar_pregunta
+    label="Editar evaluación",
+    command=editar_evaluacion
 )
 
+menu_herramientas = tk.Menu(menu_bar, tearoff=0)
+menu_herramientas.add_command(
+    label="Ver evaluación",
+    command=ver_evaluacion
+)
 
 menu_bar.add_cascade(label="Archivo",
                      menu=menu_archivo)
+menu_bar.add_cascade(label="Herramientas",
+                     menu=menu_herramientas)
 
 root.config(menu=menu_bar)
 
+root.after(100, lambda: maximizar_ventana(root))
 root.mainloop()
-
-

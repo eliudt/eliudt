@@ -102,23 +102,34 @@ def obtener_pregunta(archivo_odt, numero):
 # ACTUALIZAR PREGUNTA EXISTENTE
 # =========================================================
 
-def actualizar_pregunta(archivo_odt, numero, latex, ruta_imagen):
+def actualizar_pregunta(archivo_odt, numero_original, numero_nuevo, latex, ruta_imagen):
 
     archivo_odt = os.path.abspath(archivo_odt)
+
+    base = os.path.basename(archivo_odt).replace(".odt", "")
+    nombre_tex = f"{base}_p{numero_nuevo}.tex"
+    ruta_tex = os.path.join(CARPETA_TEX, nombre_tex)
+
+    os.makedirs(CARPETA_TEX, exist_ok=True)
+
+    with open(ruta_tex, "w", encoding="utf-8") as f:
+        f.write(latex)
 
     con = sqlite3.connect(DB)
     cur = con.cursor()
 
     cur.execute("""
         UPDATE preguntas
-        SET latex=?, ruta_imagen=?, fecha=?
+        SET numero=?, latex=?, ruta_imagen=?, ruta_tex=?, fecha=?
         WHERE archivo_odt=? AND numero=?
     """, (
+        numero_nuevo,
         latex,
         ruta_imagen,
+        ruta_tex,
         datetime.now().isoformat(),
         archivo_odt,
-        numero
+        numero_original
     ))
 
     con.commit()

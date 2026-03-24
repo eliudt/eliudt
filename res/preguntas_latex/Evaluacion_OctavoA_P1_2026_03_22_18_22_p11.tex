@@ -1,0 +1,30 @@
+En la siguiente figura se muestra un triángulo $ABC$.
+
+\begin{center}
+\begin{tikzpicture}[scale=0.8]
+
+% Triángulo
+\coordinate (A) at (0,0);
+\coordinate (B) at (6,0);
+\coordinate (C) at (2,4);
+
+\draw (A)--(B)--(C)--cycle;
+
+% Etiquetas
+\node[below left] at (A) {A};
+\node[below right] at (B) {B};
+\node[above] at (C) {C};
+
+\end{tikzpicture}
+\end{center}
+
+Para construir la bisectriz del ángulo en el vértice $A$, siga los siguientes pasos utilizando regla y compás:
+
+\begin{enumerate}
+\item Con centro en $A$, trace un arco que corte los lados $AB$ y $AC$.
+\item Sin cambiar la abertura del compás, trace arcos con centro en cada uno de los puntos de intersección obtenidos en los lados.
+\item Marque el punto donde se intersectan estos dos arcos.
+\item Trace una recta desde el vértice $A$ hasta el punto de intersección de los arcos.
+\end{enumerate}
+
+Realice la construcción sobre el triángulo y explique con sus palabras que es la bisectriz del ángulo.

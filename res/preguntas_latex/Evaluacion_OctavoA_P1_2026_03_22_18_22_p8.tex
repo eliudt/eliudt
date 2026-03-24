@@ -1,0 +1,35 @@
+Un diseñador gráfico está creando un logotipo a partir de una figura geométrica compuesta. Parte de un cuadrado de lado 4 cm y agrega regiones curvas en algunos de sus lados para darle un diseño más dinámico. Explique con sus palabras el procedimiento necesario para resolver el problema.
+
+\begin{center}
+\begin{tikzpicture}[scale=0.8]
+
+% Cuadrado
+\fill[gray!30] (0,0) rectangle (4,4);
+
+% Semicírculos (3 lados)
+\fill[gray!30] (2,4) arc[start angle=180,end angle=0,radius=2];
+\fill[gray!30] (4,2) arc[start angle=-90,end angle=90,radius=2];
+
+
+% Bordes
+\draw (0,0) rectangle (4,4);
+\draw (2,4) arc[start angle=180,end angle=0,radius=2];
+\draw (4,2) arc[start angle=-90,end angle=90,radius=2];
+
+
+% Medida
+\node at (2,-1) {4 cm};
+
+\end{tikzpicture}
+\end{center}
+
+¿Cuál de las siguientes expresiones representa el área total de la figura?
+
+\begin{multicols}{2}
+\begin{enumerate}[label=\alph*), leftmargin=*]
+\item $16 + 3\pi$
+\item $16 + 6\pi$
+\item $16 + 12\pi$
+\item $16 + \frac{3}{4}\pi(2^2)$
+\end{enumerate}
+\end{multicols}

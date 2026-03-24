@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Generador de Evaluaciones
+Comment=Abrir la aplicacion de generacion de evaluaciones
+Exec=/home/eliudt/evaluacion_comfaboy/env/bin/python /home/eliudt/evaluacion_comfaboy/interfaz_gui.py
+Path=/home/eliudt/evaluacion_comfaboy
+Terminal=false
+Categories=Education;Office;
+StartupNotify=true

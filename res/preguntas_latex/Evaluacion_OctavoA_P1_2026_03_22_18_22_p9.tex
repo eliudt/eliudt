@@ -1,0 +1,45 @@
+En una clase de geometría, un estudiante analiza un triángulo y observa un punto marcado dentro de la figura, el cual corresponde a la intersección de las mediatrices de sus lados.
+
+\begin{center}
+\begin{tikzpicture}[scale=0.8]
+
+% Triángulo
+\coordinate (A) at (0,0);
+\coordinate (B) at (6,0);
+\coordinate (C) at (2,4);
+
+\draw (A)--(B)--(C)--cycle;
+
+% Etiquetas
+\node[below left] at (A) {A};
+\node[below right] at (B) {B};
+\node[above] at (C) {C};
+
+% Circuncentro aproximado
+\coordinate (O) at (3,1.5);
+\fill (O) circle (2pt);
+\node[right] at (O) {$O$};
+
+% Mediatriz vertical
+\draw[dashed] (3,-1) -- (3,3);
+
+% Marca de ángulo recto
+\draw (3,0) -- (3,0.3) -- (3.3,0.3) -- (3.3,0);
+
+\end{tikzpicture}
+\end{center}
+
+Se afirma que el punto $O$ es el circuncentro del triángulo.
+
+Para comprobar esta afirmación, se propone el siguiente procedimiento con compás.
+
+¿Cuál de las siguientes acciones permite verificar correctamente que $O$ es el circuncentro?
+
+\begin{multicols}{2}
+\begin{enumerate}[label=\alph*), leftmargin=*]
+\item Trazar una circunferencia con centro en $O$ que pase por un vértice y verificar que también pasa por los otros dos vértices
+\item Medir los lados del triángulo y comprobar que todos son iguales
+\item Trazar segmentos desde $O$ a los lados del triángulo y verificar que son perpendiculares
+\item Dibujar una circunferencia con centro en un vértice del triángulo
+\end{enumerate}
+\end{multicols}

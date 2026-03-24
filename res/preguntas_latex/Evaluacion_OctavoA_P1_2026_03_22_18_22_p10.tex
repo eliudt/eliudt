@@ -1,0 +1,26 @@
+En la siguiente figura se muestra un triángulo $ABC$ y un punto $O$ en su interior.
+
+\begin{center}
+\begin{tikzpicture}[scale=0.8]
+
+% Triángulo
+\coordinate (A) at (0,0);
+\coordinate (B) at (6,0);
+\coordinate (C) at (2,4);
+
+\draw (A)--(B)--(C)--cycle;
+
+% Etiquetas
+\node[below left] at (A) {A};
+\node[below right] at (B) {B};
+\node[above] at (C) {C};
+
+% Punto O
+\coordinate (O) at (3,1.5);
+\fill (O) circle (2pt);
+\node[right] at (O) {$O$};
+
+\end{tikzpicture}
+\end{center}
+
+Demuestre, utilizando únicamente el compás, que el punto $O$ es el circuncentro del triángulo.
